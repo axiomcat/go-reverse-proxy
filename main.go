@@ -12,7 +12,7 @@ func main() {
 
 	httpProxy := proxy.HttpProxy{
 		Port:       ":8021",
-		TargetAddr: "localhost:8080",
+		TargetAddr: "http://localhost:8081",
 	}
 
 	go tcpProxy.Start()
