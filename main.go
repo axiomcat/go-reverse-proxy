@@ -1,44 +1,24 @@
 package main
 
 import (
-	"fmt"
-	"io"
-	"log"
-	"net"
+	"github.com/axiomcat/reverse-proxy/proxy"
 )
 
-func handleConnection(conn net.Conn) {
-	connAddress := fmt.Sprintf("%v:%v", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
-	log.Printf("Received connection %s\n", connAddress)
-
-	targetAddr := "localhost:8080"
-	targetConn, err := net.Dial("tcp", targetAddr)
-	if err != nil {
-		conn.Close()
-		log.Fatalf("Can't connect to %v: %v", targetAddr, err)
-	}
-
-	go io.Copy(targetConn, conn)
-	go io.Copy(conn, targetConn)
-}
-
 func main() {
-	addr := ":8020"
-	ln, err := net.Listen("tcp", addr)
-	defer ln.Close()
-
-	if err != nil {
-		log.Fatalf("Error while listening at port %s: %v\n", addr, err)
+	tcpProxy := proxy.TcpProxy{
+		Port:       ":8020",
+		TargetAddr: "localhost:8080",
 	}
 
-	log.Println("Running reverse proxy on port", addr)
+	httpProxy := proxy.HttpProxy{
+		Port:       ":8021",
+		TargetAddr: "http://localhost:8081",
+	}
+
+	go tcpProxy.Start()
+	go httpProxy.Start()
 
 	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Println("Error while accepting connection: ", err)
-			continue
-		}
-		go handleConnection(conn)
+
 	}
 }
