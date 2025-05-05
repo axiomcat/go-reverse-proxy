@@ -34,7 +34,7 @@ func (p TcpProxy) Start() {
 		log.Fatalf("Error while listening at port %s: %v\n", p.Port, err)
 	}
 
-	log.Println("Running reverse proxy on port", p.Port)
+	log.Println("Running TCP reverse proxy on port", p.Port)
 
 	for {
 		conn, err := ln.Accept()

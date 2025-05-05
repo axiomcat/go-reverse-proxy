@@ -3,9 +3,11 @@ package proxy
 import (
 	"io"
 	"log"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
+	"time"
 )
 
 type HttpProxy struct {
@@ -44,23 +46,26 @@ func (p HttpProxy) Start() {
 			log.Println("Error while sending request to target:", err)
 			return
 		}
+
 		defer resp.Body.Close()
-		// body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Println("Error reading response body:", err)
-		}
+
 		w.WriteHeader(resp.StatusCode)
-		for k, v := range resp.Header {
-			w.Header().Set(k, v[0])
-		}
-		// fmt.Fprint(w, string(body))
+
+		maps.Copy[map[string][]string, map[string][]string](w.Header(), resp.Header)
+
+		log.Printf("%s %s → %s (%d)", r.Method, r.URL.String(), targetUrl.String(), resp.StatusCode)
+
 		io.Copy(w, resp.Body)
 	})
 
 	httpServer := &http.Server{
-		Addr:    p.Port,
-		Handler: mux,
+		Addr:         p.Port,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
+
+	log.Println("Running HTTP reverse proxy on port", p.Port)
 
 	go httpServer.ListenAndServe()
 }

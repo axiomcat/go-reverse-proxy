@@ -1,0 +1,7 @@
+---
+tcp:
+  target: "localhost:8080"
+  port: ":8020"
+http:
+  target: "http://localhost:8081"
+  port: ":8021"
