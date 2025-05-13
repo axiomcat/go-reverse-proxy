@@ -12,6 +12,7 @@ func ReadProxyConfig(configPath string) (ReverseProxyConfig, error) {
 	if err != nil {
 		return ReverseProxyConfig{}, err
 	}
+
 	proxyConfig := ReverseProxyConfig{}
 
 	err = yaml.Unmarshal(configData, &proxyConfig)

@@ -13,10 +13,12 @@ type ReverseProxyConfig struct {
 		Port   string `yaml:"port"`
 		Target string `yaml:"target"`
 	} `yaml:"tcp"`
-	Http *struct {
-		Port   string `yaml:"port"`
+	Http []*struct {
+		// Port   string `yaml:"port"`
 		Target string `yaml:"target"`
+		Host   string `yaml:"host"`
 	} `yaml:"http"`
+	HttpPort string `yaml:"http_port"`
 }
 
 func validateHTTPURL(rawURL string) error {
@@ -57,20 +59,22 @@ func validatePort(port string) error {
 }
 
 func ValidateProxyConfig(config ReverseProxyConfig) error {
-	if config.Http != nil {
-		if config.Http.Port == "" {
-			return errors.New("Port is required for HTTP configuration")
-		}
-		if config.Http.Target == "" {
-			return errors.New("Target url is required for HTTP configuration")
-		}
-		err := validatePort(config.Http.Port)
-		if err != nil {
-			return err
-		}
-		err = validateHTTPURL(config.Http.Target)
-		if err != nil {
-			return err
+	for _, httpConfig := range config.Http {
+		if httpConfig != nil {
+			// if httpConfig.Port == "" {
+			// 	return errors.New("Port is required for HTTP configuration")
+			// }
+			if httpConfig.Target == "" {
+				return errors.New("Target url is required for HTTP configuration")
+			}
+			// err := validatePort(httpConfig.Port)
+			// if err != nil {
+			// 	return err
+			// }
+			err := validateHTTPURL(httpConfig.Target)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -92,10 +96,9 @@ func ValidateProxyConfig(config ReverseProxyConfig) error {
 	}
 
 	if config.Tcp != nil && config.Http != nil {
-		if config.Tcp.Port == config.Http.Port {
+		if config.Tcp.Port == config.HttpPort {
 			return errors.New("TCP port and HTTP port are the same, please change one of them")
 		}
-
 	}
 
 	return nil

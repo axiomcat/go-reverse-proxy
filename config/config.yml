@@ -3,5 +3,8 @@ tcp:
   target: "localhost:8080"
   port: ":8020"
 http:
-  target: "http://localhost:8081"
-  port: ":8021"
+  - target: "http://localhost:8081"
+    host: "localhost"
+  - target: "http://localhost:8082"
+    host: "admin.localhost"
+http_port: ":8021"

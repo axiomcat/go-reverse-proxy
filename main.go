@@ -24,12 +24,21 @@ func main() {
 	}
 
 	if proxyConfig.Http != nil {
-		httpProxy := proxy.HttpProxy{
-			Port:       proxyConfig.Http.Port,
-			TargetAddr: proxyConfig.Http.Target,
+		httpProxies := []proxy.HttpProxy{}
+		for _, httpProxyConfig := range proxyConfig.Http {
+			httpProxy := proxy.HttpProxy{
+				TargetAddr: httpProxyConfig.Target,
+				Host:       httpProxyConfig.Host,
+			}
+			httpProxies = append(httpProxies, httpProxy)
 		}
 
-		go httpProxy.Start()
+		httpProxyHandler := proxy.HttpProxyRequestHandler{
+			HttpProxies: httpProxies,
+			Port:        proxyConfig.HttpPort,
+		}
+
+		go httpProxyHandler.Start()
 	}
 
 	for {
