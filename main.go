@@ -29,6 +29,7 @@ func main() {
 			httpProxy := proxy.HttpProxy{
 				TargetAddr: httpProxyConfig.Target,
 				Host:       httpProxyConfig.Host,
+				PrefixPath: httpProxyConfig.PathPrefix,
 			}
 			httpProxies = append(httpProxies, httpProxy)
 		}

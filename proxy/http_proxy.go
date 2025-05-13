@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"time"
 )
 
 type HttpProxy struct {
 	TargetAddr string
 	Host       string
+	PrefixPath string
 }
 
 type HttpProxyRequestHandler struct {
@@ -21,21 +23,39 @@ type HttpProxyRequestHandler struct {
 }
 
 func (handler HttpProxyRequestHandler) Start() {
-	hostToTarget := make(map[string]HttpProxy)
+	hostToTarget := make(map[string][]HttpProxy)
 	for _, proxy := range handler.HttpProxies {
 		fullHostPath := proxy.Host + handler.Port
-		hostToTarget[fullHostPath] = proxy
+		if proxies, ok := hostToTarget[fullHostPath]; ok {
+			proxies = append(proxies, proxy)
+			hostToTarget[fullHostPath] = proxies
+		} else {
+			hostToTarget[fullHostPath] = []HttpProxy{proxy}
+		}
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		host := r.Host
-		proxy, proxyExist := hostToTarget[host]
+		proxies, proxyExist := hostToTarget[host]
 		if !proxyExist {
 			log.Printf("There is no proxy matching host %s\n", host)
 			return
 		}
-		proxy.ForwardRequest(w, r)
+
+		path := r.URL.String()
+		processedRequest := false
+		for _, proxy := range proxies {
+			if strings.HasPrefix(path, proxy.PrefixPath) {
+				proxy.ForwardRequest(w, r)
+				processedRequest = true
+				break
+			}
+		}
+
+		if !processedRequest {
+			log.Printf("Did not find any matching rule for path %s\n", path)
+		}
 	})
 
 	httpServer := &http.Server{

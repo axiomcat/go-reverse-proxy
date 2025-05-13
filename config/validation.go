@@ -14,9 +14,9 @@ type ReverseProxyConfig struct {
 		Target string `yaml:"target"`
 	} `yaml:"tcp"`
 	Http []*struct {
-		// Port   string `yaml:"port"`
-		Target string `yaml:"target"`
-		Host   string `yaml:"host"`
+		Target     string `yaml:"target"`
+		Host       string `yaml:"host"`
+		PathPrefix string `yaml:"path_prefix"`
 	} `yaml:"http"`
 	HttpPort string `yaml:"http_port"`
 }
@@ -61,19 +61,15 @@ func validatePort(port string) error {
 func ValidateProxyConfig(config ReverseProxyConfig) error {
 	for _, httpConfig := range config.Http {
 		if httpConfig != nil {
-			// if httpConfig.Port == "" {
-			// 	return errors.New("Port is required for HTTP configuration")
-			// }
 			if httpConfig.Target == "" {
 				return errors.New("Target url is required for HTTP configuration")
 			}
-			// err := validatePort(httpConfig.Port)
-			// if err != nil {
-			// 	return err
-			// }
 			err := validateHTTPURL(httpConfig.Target)
 			if err != nil {
 				return err
+			}
+			if len(httpConfig.PathPrefix) > 0 && httpConfig.PathPrefix[0] != '/' {
+				return errors.New("Prefix path is not valid")
 			}
 		}
 	}
