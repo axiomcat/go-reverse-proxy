@@ -1,66 +1,119 @@
 package proxy
 
 import (
+	"fmt"
 	"io"
-	"log"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
+	"time"
+
+	"github.com/axiomcat/reverse-proxy/logger"
 )
 
 type HttpProxy struct {
-	Port       string
 	TargetAddr string
+	Host       string
+	PrefixPath string
 }
 
-func (p HttpProxy) Start() {
+type HttpProxyRequestHandler struct {
+	HttpProxies []HttpProxy
+	Port        string
+}
+
+func (handler HttpProxyRequestHandler) Start() {
+	logger := logger.GetInstance(0)
+
+	hostToTarget := make(map[string][]HttpProxy)
+	for _, proxy := range handler.HttpProxies {
+		fullHostPath := proxy.Host + handler.Port
+		if proxies, ok := hostToTarget[fullHostPath]; ok {
+			proxies = append(proxies, proxy)
+			hostToTarget[fullHostPath] = proxies
+		} else {
+			hostToTarget[fullHostPath] = []HttpProxy{proxy}
+		}
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		targetHeaders := make(map[string][]string)
-		for k, v := range r.Header {
-			targetHeaders[k] = slices.Clone(v)
-		}
-		forwardedForHeader := targetHeaders["X-Forwarded-For"]
-		targetHeaders["X-Forwarded-For"] = append(forwardedForHeader, r.RemoteAddr)
-		targetHeaders["X-Forwarded-Proto"] = []string{"http"}
-		targetHeaders["X-Forwarded-Host"] = []string{r.Host}
-
-		targetUrl, err := url.Parse(p.TargetAddr)
-		if err != nil {
-			log.Printf("Error while parsing url %s: %v", p.TargetAddr, err)
+		host := r.Host
+		proxies, proxyExist := hostToTarget[host]
+		if !proxyExist {
+			logger.Log(fmt.Sprintf("There is no proxy matching host %s\n", host))
 			return
 		}
-		targetUrl.Path = r.URL.Path
-		targetUrl.RawQuery = r.URL.RawQuery
 
-		targetReq, err := http.NewRequestWithContext(ctx, r.Method, targetUrl.String(), r.Body)
-		targetReq.Header = targetHeaders
-		targetReq.Host = r.Host
+		path := r.URL.String()
+		processedRequest := false
+		for _, proxy := range proxies {
+			if strings.HasPrefix(path, proxy.PrefixPath) {
+				logger.Debug(fmt.Sprintf("Found matching prefix of path %s in proxy %v\n", path, proxy))
+				proxy.ForwardRequest(w, r)
+				processedRequest = true
+				break
+			}
+		}
 
-		client := &http.Client{}
-		resp, err := client.Do(targetReq)
-		if err != nil {
-			log.Println("Error while sending request to target:", err)
-			return
+		if !processedRequest {
+			logger.Log(fmt.Sprintf("Did not find any matching rule for path %s\n", path))
 		}
-		defer resp.Body.Close()
-		// body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Println("Error reading response body:", err)
-		}
-		w.WriteHeader(resp.StatusCode)
-		for k, v := range resp.Header {
-			w.Header().Set(k, v[0])
-		}
-		// fmt.Fprint(w, string(body))
-		io.Copy(w, resp.Body)
 	})
 
 	httpServer := &http.Server{
-		Addr:    p.Port,
-		Handler: mux,
+		Addr:         handler.Port,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 
+	logger.Log(fmt.Sprint("Running HTTP reverse proxy on port", handler.Port))
+
 	go httpServer.ListenAndServe()
+}
+
+func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {
+	logger := logger.GetInstance(0)
+	ctx := r.Context()
+	targetHeaders := make(map[string][]string)
+	for k, v := range r.Header {
+		targetHeaders[k] = slices.Clone(v)
+	}
+	forwardedForHeader := targetHeaders["X-Forwarded-For"]
+	targetHeaders["X-Forwarded-For"] = append(forwardedForHeader, r.RemoteAddr)
+	targetHeaders["X-Forwarded-Proto"] = []string{"http"}
+	targetHeaders["X-Forwarded-Host"] = []string{r.Host}
+
+	targetUrl, err := url.Parse(p.TargetAddr)
+	if err != nil {
+		logger.Log(fmt.Sprintf("Error while parsing url %s: %v", p.TargetAddr, err))
+		return
+	}
+	targetUrl.Path = r.URL.Path
+	targetUrl.RawQuery = r.URL.RawQuery
+
+	targetReq, err := http.NewRequestWithContext(ctx, r.Method, targetUrl.String(), r.Body)
+	targetReq.Header = targetHeaders
+	targetReq.Host = r.Host
+
+	client := &http.Client{}
+	logger.Debug(fmt.Sprint("Making request to target", targetReq.URL))
+	resp, err := client.Do(targetReq)
+	if err != nil {
+		logger.Log(fmt.Sprint("Error while sending request to target:", err))
+		return
+	}
+
+	defer resp.Body.Close()
+
+	w.WriteHeader(resp.StatusCode)
+
+	maps.Copy[map[string][]string, map[string][]string](w.Header(), resp.Header)
+
+	logger.Log(fmt.Sprintf("%s %s → %s (%d)", r.Method, r.URL.String(), targetUrl.String(), resp.StatusCode))
+
+	io.Copy(w, resp.Body)
 }

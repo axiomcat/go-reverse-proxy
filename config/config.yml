@@ -1,0 +1,23 @@
+---
+tcp:
+  target: "localhost:8080"
+  port: ":8020"
+
+http:
+  - target: "http://localhost:8081"
+    host: "localhost"
+
+  - target: "http://localhost:8082"
+    host: "admin.localhost"
+    path_prefix: "/payments"
+
+  - target: "http://localhost:8083"
+    host: "admin.localhost"
+    path_prefix: "/users"
+
+  - target: "http://localhost:8084"
+    host: "admin.localhost"
+    path_prefix: "/"
+
+http_port: ":8021"
+log_level: "log"
