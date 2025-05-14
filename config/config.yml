@@ -3,7 +3,7 @@ tcp:
   target: "localhost:8080"
   port: ":8020"
 
-http:
+http_routes:
   - target: "http://localhost:8081"
     host: "localhost"
 
@@ -15,9 +15,16 @@ http:
     host: "admin.localhost"
     path_prefix: "/users"
 
+  - target: "http://localhost:8085"
+    host: "admin.localhost"
+    path_prefix: "/long"
+
   - target: "http://localhost:8084"
     host: "admin.localhost"
     path_prefix: "/"
 
-http_port: ":8021"
+http_config:
+  port: ":8021"
+  shutdown_timeout: "1s"
+
 log_level: "log"
