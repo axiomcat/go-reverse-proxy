@@ -1,14 +1,16 @@
 package proxy
 
 import (
+	"fmt"
 	"io"
-	"log"
 	"maps"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/axiomcat/reverse-proxy/logger"
 )
 
 type HttpProxy struct {
@@ -23,6 +25,8 @@ type HttpProxyRequestHandler struct {
 }
 
 func (handler HttpProxyRequestHandler) Start() {
+	logger := logger.GetInstance(0)
+
 	hostToTarget := make(map[string][]HttpProxy)
 	for _, proxy := range handler.HttpProxies {
 		fullHostPath := proxy.Host + handler.Port
@@ -39,7 +43,7 @@ func (handler HttpProxyRequestHandler) Start() {
 		host := r.Host
 		proxies, proxyExist := hostToTarget[host]
 		if !proxyExist {
-			log.Printf("There is no proxy matching host %s\n", host)
+			logger.Log(fmt.Sprintf("There is no proxy matching host %s\n", host))
 			return
 		}
 
@@ -47,6 +51,7 @@ func (handler HttpProxyRequestHandler) Start() {
 		processedRequest := false
 		for _, proxy := range proxies {
 			if strings.HasPrefix(path, proxy.PrefixPath) {
+				logger.Debug(fmt.Sprintf("Found matching prefix of path %s in proxy %v\n", path, proxy))
 				proxy.ForwardRequest(w, r)
 				processedRequest = true
 				break
@@ -54,7 +59,7 @@ func (handler HttpProxyRequestHandler) Start() {
 		}
 
 		if !processedRequest {
-			log.Printf("Did not find any matching rule for path %s\n", path)
+			logger.Log(fmt.Sprintf("Did not find any matching rule for path %s\n", path))
 		}
 	})
 
@@ -65,12 +70,13 @@ func (handler HttpProxyRequestHandler) Start() {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	log.Println("Running HTTP reverse proxy on port", handler.Port)
+	logger.Log(fmt.Sprint("Running HTTP reverse proxy on port", handler.Port))
 
 	go httpServer.ListenAndServe()
 }
 
 func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {
+	logger := logger.GetInstance(0)
 	ctx := r.Context()
 	targetHeaders := make(map[string][]string)
 	for k, v := range r.Header {
@@ -83,7 +89,7 @@ func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {
 
 	targetUrl, err := url.Parse(p.TargetAddr)
 	if err != nil {
-		log.Printf("Error while parsing url %s: %v", p.TargetAddr, err)
+		logger.Log(fmt.Sprintf("Error while parsing url %s: %v", p.TargetAddr, err))
 		return
 	}
 	targetUrl.Path = r.URL.Path
@@ -94,9 +100,10 @@ func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {
 	targetReq.Host = r.Host
 
 	client := &http.Client{}
+	logger.Debug(fmt.Sprint("Making request to target", targetReq.URL))
 	resp, err := client.Do(targetReq)
 	if err != nil {
-		log.Println("Error while sending request to target:", err)
+		logger.Log(fmt.Sprint("Error while sending request to target:", err))
 		return
 	}
 
@@ -106,7 +113,7 @@ func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {
 
 	maps.Copy[map[string][]string, map[string][]string](w.Header(), resp.Header)
 
-	log.Printf("%s %s → %s (%d)", r.Method, r.URL.String(), targetUrl.String(), resp.StatusCode)
+	logger.Log(fmt.Sprintf("%s %s → %s (%d)", r.Method, r.URL.String(), targetUrl.String(), resp.StatusCode))
 
 	io.Copy(w, resp.Body)
 }

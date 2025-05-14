@@ -1,17 +1,19 @@
 package main
 
 import (
-	"log"
-
 	"github.com/axiomcat/reverse-proxy/config"
+	"github.com/axiomcat/reverse-proxy/logger"
 	"github.com/axiomcat/reverse-proxy/proxy"
 )
 
 func main() {
 	configPath := "config/config.yml"
 	proxyConfig, err := config.ReadProxyConfig(configPath)
+
+	logger := logger.GetInstance(config.GetLogLevel(proxyConfig))
+
 	if err != nil {
-		log.Fatalln("Error reading proxy config:", err)
+		logger.Fatal("Error reading proxy config:", err)
 	}
 
 	if proxyConfig.Tcp != nil {

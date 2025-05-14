@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"strconv"
 )
 
@@ -19,6 +20,7 @@ type ReverseProxyConfig struct {
 		PathPrefix string `yaml:"path_prefix"`
 	} `yaml:"http"`
 	HttpPort string `yaml:"http_port"`
+	LogLevel string `yaml:"log_level"`
 }
 
 func validateHTTPURL(rawURL string) error {
@@ -95,6 +97,11 @@ func ValidateProxyConfig(config ReverseProxyConfig) error {
 		if config.Tcp.Port == config.HttpPort {
 			return errors.New("TCP port and HTTP port are the same, please change one of them")
 		}
+	}
+
+	validLogLevels := []string{"debug", "log"}
+	if !slices.Contains(validLogLevels, config.LogLevel) {
+		return errors.New(fmt.Sprintf("LogLevel %s is not recognized\n", config.LogLevel))
 	}
 
 	return nil

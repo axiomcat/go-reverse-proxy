@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 
+	"github.com/axiomcat/reverse-proxy/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,4 +27,11 @@ func ReadProxyConfig(configPath string) (ReverseProxyConfig, error) {
 		return ReverseProxyConfig{}, err
 	}
 	return proxyConfig, nil
+}
+
+func GetLogLevel(config ReverseProxyConfig) logger.LogLevel {
+	if config.LogLevel == "debug" {
+		return logger.Debug
+	}
+	return logger.Logging
 }
