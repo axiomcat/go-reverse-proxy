@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"maps"
@@ -22,9 +23,10 @@ type HttpProxy struct {
 type HttpProxyRequestHandler struct {
 	HttpProxies []HttpProxy
 	Port        string
+	server      *http.Server
 }
 
-func (handler HttpProxyRequestHandler) Start() {
+func (handler *HttpProxyRequestHandler) Start() {
 	logger := logger.GetInstance(0)
 
 	hostToTarget := make(map[string][]HttpProxy)
@@ -70,9 +72,24 @@ func (handler HttpProxyRequestHandler) Start() {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	logger.Log(fmt.Sprint("Running HTTP reverse proxy on port", handler.Port))
+	handler.server = httpServer
 
-	go httpServer.ListenAndServe()
+	go func() {
+		logger.Log(fmt.Sprint("Running HTTP reverse proxy on port", handler.Port))
+		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			logger.Fatal(fmt.Sprintf("Error in ListenAndServe %v\n", err))
+		}
+	}()
+}
+
+func (handler *HttpProxyRequestHandler) Stop(ctx context.Context) {
+	logger := logger.GetInstance(0)
+	logger.Log("Shutting down HTTP proxy")
+	if handler.server != nil {
+		if err := handler.server.Shutdown(ctx); err != nil {
+			logger.Fatal("Server Shutdown Failed:", err)
+		}
+	}
 }
 
 func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {

@@ -1,50 +1,31 @@
 package main
 
 import (
-	"github.com/axiomcat/reverse-proxy/config"
 	"github.com/axiomcat/reverse-proxy/logger"
 	"github.com/axiomcat/reverse-proxy/proxy"
+	"os"
+	"os/signal"
 )
 
 func main() {
 	configPath := "config/config.yml"
-	proxyConfig, err := config.ReadProxyConfig(configPath)
+	reloadPort := ":42007"
 
-	logger := logger.GetInstance(config.GetLogLevel(proxyConfig))
+	reverseProxy := proxy.ReverseProxy{ReloadPort: reloadPort, ConfigPath: configPath}
 
-	if err != nil {
-		logger.Fatal("Error reading proxy config:", err)
-	}
+	reverseProxy.SetupConfig()
 
-	if proxyConfig.Tcp != nil {
-		tcpProxy := proxy.TcpProxy{
-			Port:       proxyConfig.Tcp.Port,
-			TargetAddr: proxyConfig.Tcp.Target,
-		}
+	go reverseProxy.Start()
 
-		go tcpProxy.Start()
-	}
+	logger := logger.GetInstance(0)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
 
-	if proxyConfig.Http != nil {
-		httpProxies := []proxy.HttpProxy{}
-		for _, httpProxyConfig := range proxyConfig.Http {
-			httpProxy := proxy.HttpProxy{
-				TargetAddr: httpProxyConfig.Target,
-				Host:       httpProxyConfig.Host,
-				PrefixPath: httpProxyConfig.PathPrefix,
-			}
-			httpProxies = append(httpProxies, httpProxy)
-		}
+	<-stop
 
-		httpProxyHandler := proxy.HttpProxyRequestHandler{
-			HttpProxies: httpProxies,
-			Port:        proxyConfig.HttpPort,
-		}
+	logger.Log("Recieved interrupt, stopping server")
 
-		go httpProxyHandler.Start()
-	}
+	reverseProxy.Stop()
 
-	for {
-
-	}
+	logger.Log("Server shutdown gracefully")
 }

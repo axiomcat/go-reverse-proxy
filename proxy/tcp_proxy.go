@@ -4,34 +4,70 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/axiomcat/reverse-proxy/logger"
 )
 
-type TcpProxy struct {
-	Port       string
-	TargetAddr string
+type connPair struct {
+	client net.Conn
+	target net.Conn
 }
 
-func (p TcpProxy) handleConnection(conn net.Conn) {
-	logger := logger.GetInstance(0)
-	connAddress := fmt.Sprintf("%v:%v", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
-	logger.Debug(fmt.Sprintf("Handling connection %s\n", connAddress))
+type TcpProxy struct {
+	Port        string
+	TargetAddr  string
+	listener    net.Listener
+	wg          sync.WaitGroup
+	connMutex   sync.Mutex
+	connections map[net.Conn]connPair
+}
 
+func (p *TcpProxy) handleConnection(conn net.Conn) {
+	logger := logger.GetInstance(0)
 	targetConn, err := net.Dial("tcp", p.TargetAddr)
+
 	if err != nil {
 		conn.Close()
 		logger.Fatal(fmt.Sprintf("Can't connect to %v: %v", p.TargetAddr, err))
 	}
 
-	logger.Debug("Copying connecton to target")
-	go io.Copy(targetConn, conn)
-	logger.Debug("Copying connecton from target")
-	go io.Copy(conn, targetConn)
+	p.connMutex.Lock()
+	p.connections[conn] = connPair{client: conn, target: targetConn}
+	p.connMutex.Unlock()
+
+	defer func() {
+		logger.Debug("Connection finished, cleaning up")
+
+		p.connMutex.Lock()
+		delete(p.connections, conn)
+		p.connMutex.Unlock()
+
+		conn.Close()
+		targetConn.Close()
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		io.Copy(targetConn, conn)
+		targetConn.Close()
+	}()
+
+	go func() {
+		defer wg.Done()
+		io.Copy(conn, targetConn)
+		conn.Close()
+	}()
+
+	wg.Wait()
 }
 
-func (p TcpProxy) Start() {
+func (p *TcpProxy) Start() {
 	logger := logger.GetInstance(0)
+	p.connections = make(map[net.Conn]connPair)
 
 	ln, err := net.Listen("tcp", p.Port)
 	defer ln.Close()
@@ -39,6 +75,8 @@ func (p TcpProxy) Start() {
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Error while listening at port %s: %v\n", p.Port, err))
 	}
+
+	p.listener = ln
 
 	logger.Log(fmt.Sprint("Running TCP reverse proxy on port", p.Port))
 
@@ -48,10 +86,45 @@ func (p TcpProxy) Start() {
 		logger.Log(fmt.Sprint("Got TCP connection", conn))
 
 		if err != nil {
-			logger.Log(fmt.Sprint("Error while accepting connection: ", err))
-			continue
+			logger.Log(fmt.Sprint("Listener closed: ", err))
+			break
 		}
 
-		go p.handleConnection(conn)
+		p.wg.Add(1)
+		go func(c net.Conn) {
+			defer p.wg.Done()
+			p.handleConnection(c)
+		}(conn)
 	}
+}
+
+func (p *TcpProxy) Stop() {
+	logger := logger.GetInstance(0)
+	logger.Log("Shutting down Tcp proxy")
+
+	if p.listener != nil {
+		logger.Log("Closing tcp listener")
+		p.listener.Close()
+	}
+
+	p.listener = nil
+
+	p.connMutex.Lock()
+	connPairs := make([]connPair, 0, len(p.connections))
+	for _, pair := range p.connections {
+		connPairs = append(connPairs, pair)
+	}
+	p.connMutex.Unlock()
+
+	logger.Debug(fmt.Sprintf("Closing %d active connections", len(connPairs)))
+	for _, conn := range connPairs {
+		logger.Debug(fmt.Sprintf("Closing client: %v", conn.client.RemoteAddr()))
+		conn.client.Close()
+		logger.Debug(fmt.Sprintf("Closing target: %v", conn.target.RemoteAddr()))
+		conn.target.Close()
+	}
+
+	p.wg.Wait()
+
+	logger.Log("Tcp proxy shutdown gracefully")
 }

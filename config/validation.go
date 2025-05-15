@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"time"
 )
 
 type ReverseProxyConfig struct {
@@ -14,12 +15,15 @@ type ReverseProxyConfig struct {
 		Port   string `yaml:"port"`
 		Target string `yaml:"target"`
 	} `yaml:"tcp"`
-	Http []*struct {
+	HttpRoutes []*struct {
 		Target     string `yaml:"target"`
 		Host       string `yaml:"host"`
 		PathPrefix string `yaml:"path_prefix"`
-	} `yaml:"http"`
-	HttpPort string `yaml:"http_port"`
+	} `yaml:"http_routes"`
+	HttpConfig struct {
+		Port            string        `yaml:"port"`
+		ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	} `yaml:"http_config"`
 	LogLevel string `yaml:"log_level"`
 }
 
@@ -61,7 +65,7 @@ func validatePort(port string) error {
 }
 
 func ValidateProxyConfig(config ReverseProxyConfig) error {
-	for _, httpConfig := range config.Http {
+	for _, httpConfig := range config.HttpRoutes {
 		if httpConfig != nil {
 			if httpConfig.Target == "" {
 				return errors.New("Target url is required for HTTP configuration")
@@ -93,8 +97,8 @@ func ValidateProxyConfig(config ReverseProxyConfig) error {
 		}
 	}
 
-	if config.Tcp != nil && config.Http != nil {
-		if config.Tcp.Port == config.HttpPort {
+	if config.Tcp != nil && config.HttpRoutes != nil {
+		if config.Tcp.Port == config.HttpConfig.Port {
 			return errors.New("TCP port and HTTP port are the same, please change one of them")
 		}
 	}
