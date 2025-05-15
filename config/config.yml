@@ -25,6 +25,6 @@ http_routes:
 
 http_config:
   port: ":8021"
-  shutdown_timeout: "1s"
+  shutdown_timeout: "5s"
 
 log_level: "log"
