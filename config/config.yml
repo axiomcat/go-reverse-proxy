@@ -27,4 +27,4 @@ http_config:
   port: ":8021"
   shutdown_timeout: "5s"
 
-log_level: "log"
+log_level: "debug"

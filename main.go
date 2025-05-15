@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"github.com/axiomcat/reverse-proxy/logger"
 	"github.com/axiomcat/reverse-proxy/proxy"
 	"os"
@@ -26,12 +25,7 @@ func main() {
 
 	logger.Log("Recieved interrupt, stopping server")
 
-	ctx, cancel := context.WithTimeout(context.Background(), reverseProxy.ProxyConfig.HttpConfig.ShutdownTimeout)
-	defer cancel()
-
-	if reverseProxy.HttpProxyHandler.Server != nil {
-		reverseProxy.HttpProxyHandler.Stop(ctx)
-	}
+	reverseProxy.Stop()
 
 	logger.Log("Server shutdown gracefully")
 }

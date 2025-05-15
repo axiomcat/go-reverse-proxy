@@ -23,7 +23,7 @@ type HttpProxy struct {
 type HttpProxyRequestHandler struct {
 	HttpProxies []HttpProxy
 	Port        string
-	Server      *http.Server
+	server      *http.Server
 }
 
 func (handler *HttpProxyRequestHandler) Start() {
@@ -72,7 +72,7 @@ func (handler *HttpProxyRequestHandler) Start() {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	handler.Server = httpServer
+	handler.server = httpServer
 
 	go func() {
 		logger.Log(fmt.Sprint("Running HTTP reverse proxy on port", handler.Port))
@@ -85,8 +85,10 @@ func (handler *HttpProxyRequestHandler) Start() {
 func (handler *HttpProxyRequestHandler) Stop(ctx context.Context) {
 	logger := logger.GetInstance(0)
 	logger.Log("Shutting down HTTP proxy")
-	if err := handler.Server.Shutdown(ctx); err != nil {
-		logger.Fatal("Server Shutdown Failed:", err)
+	if handler.server != nil {
+		if err := handler.server.Shutdown(ctx); err != nil {
+			logger.Fatal("Server Shutdown Failed:", err)
+		}
 	}
 }
 

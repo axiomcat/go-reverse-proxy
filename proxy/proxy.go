@@ -4,22 +4,23 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/axiomcat/reverse-proxy/config"
 	"github.com/axiomcat/reverse-proxy/logger"
 )
 
 type ReverseProxy struct {
-	TcpProxy         TcpProxy
-	HttpProxyHandler HttpProxyRequestHandler
-	ProxyConfig      config.ReverseProxyConfig
+	tcpProxy         TcpProxy
+	httpProxyHandler HttpProxyRequestHandler
+	proxyConfig      config.ReverseProxyConfig
 	ReloadPort       string
 	ConfigPath       string
 }
 
 func (r *ReverseProxy) SetupConfig() {
 	proxyConfig, err := config.ReadProxyConfig(r.ConfigPath)
-	r.ProxyConfig = proxyConfig
+	r.proxyConfig = proxyConfig
 	logger := logger.GetInstance(config.GetLogLevel(proxyConfig))
 	logger.UpdateLogLevel(config.GetLogLevel(proxyConfig))
 
@@ -31,33 +32,42 @@ func (r *ReverseProxy) SetupConfig() {
 func (r *ReverseProxy) ReloadConfig() {
 	logger := logger.GetInstance(0)
 	logger.Log("Reloading config")
-	ctx, cancel := context.WithTimeout(context.Background(), r.ProxyConfig.HttpConfig.ShutdownTimeout)
-	defer cancel()
+
 	logger.Log("Shutting down server")
-	if r.HttpProxyHandler.Server != nil {
-		r.HttpProxyHandler.Stop(ctx)
-	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.Stop()
+	}()
+
+	wg.Wait()
+
+	logger.Log("Reading config again")
+
 	r.SetupConfig()
+
 	go r.Start()
 }
 
 func (r *ReverseProxy) Start() {
-	r.TcpProxy = TcpProxy{}
+	r.tcpProxy = TcpProxy{}
 
-	if r.ProxyConfig.Tcp != nil {
-		r.TcpProxy = TcpProxy{
-			Port:       r.ProxyConfig.Tcp.Port,
-			TargetAddr: r.ProxyConfig.Tcp.Target,
+	if r.proxyConfig.Tcp != nil {
+		r.tcpProxy = TcpProxy{
+			Port:       r.proxyConfig.Tcp.Port,
+			TargetAddr: r.proxyConfig.Tcp.Target,
 		}
 
-		// go r.TcpProxy.Start()
+		go r.tcpProxy.Start()
 	}
 
-	r.HttpProxyHandler = HttpProxyRequestHandler{}
+	r.httpProxyHandler = HttpProxyRequestHandler{}
 
-	if r.ProxyConfig.HttpRoutes != nil {
+	if r.proxyConfig.HttpRoutes != nil {
 		httpProxies := []HttpProxy{}
-		for _, httpProxyConfig := range r.ProxyConfig.HttpRoutes {
+		for _, httpProxyConfig := range r.proxyConfig.HttpRoutes {
 			httpProxy := HttpProxy{
 				TargetAddr: httpProxyConfig.Target,
 				Host:       httpProxyConfig.Host,
@@ -66,13 +76,27 @@ func (r *ReverseProxy) Start() {
 			httpProxies = append(httpProxies, httpProxy)
 		}
 
-		r.HttpProxyHandler.HttpProxies = httpProxies
-		r.HttpProxyHandler.Port = r.ProxyConfig.HttpConfig.Port
+		r.httpProxyHandler.HttpProxies = httpProxies
+		r.httpProxyHandler.Port = r.proxyConfig.HttpConfig.Port
 
-		go r.HttpProxyHandler.Start()
+		go r.httpProxyHandler.Start()
 	}
 
 	go r.StartReloadEndpoint()
+}
+
+func (r *ReverseProxy) Stop() {
+
+	ctx, cancel := context.WithTimeout(context.Background(), r.proxyConfig.HttpConfig.ShutdownTimeout)
+	defer cancel()
+
+	if r.proxyConfig.HttpRoutes != nil {
+		r.httpProxyHandler.Stop(ctx)
+	}
+
+	if r.proxyConfig.Tcp != nil {
+		r.tcpProxy.Stop()
+	}
 }
 
 func (rp *ReverseProxy) StartReloadEndpoint() {
