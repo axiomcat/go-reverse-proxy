@@ -2,8 +2,6 @@ package proxy
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"sync"
 
 	"github.com/axiomcat/reverse-proxy/config"
@@ -14,7 +12,7 @@ type ReverseProxy struct {
 	tcpProxy         TcpProxy
 	httpProxyHandler HttpProxyRequestHandler
 	proxyConfig      config.ReverseProxyConfig
-	ReloadPort       string
+	AuxPort          string
 	ConfigPath       string
 }
 
@@ -81,12 +79,9 @@ func (r *ReverseProxy) Start() {
 
 		go r.httpProxyHandler.Start()
 	}
-
-	go r.StartReloadEndpoint()
 }
 
 func (r *ReverseProxy) Stop() {
-
 	ctx, cancel := context.WithTimeout(context.Background(), r.proxyConfig.HttpConfig.ShutdownTimeout)
 	defer cancel()
 
@@ -99,21 +94,6 @@ func (r *ReverseProxy) Stop() {
 	}
 }
 
-func (rp *ReverseProxy) StartReloadEndpoint() {
-	logger := logger.GetInstance(0)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/reload", func(w http.ResponseWriter, r *http.Request) {
-		rp.ReloadConfig()
-		fmt.Fprintln(w, "Config reloaded")
-	})
-
-	httpServer := &http.Server{
-		Addr:    rp.ReloadPort,
-		Handler: mux,
-	}
-
-	go func() {
-		logger.Log(fmt.Sprint("Running reload endnpoint on port", rp.ReloadPort))
-		httpServer.ListenAndServe()
-	}()
+func (r *ReverseProxy) GetNumberOfTcpConnections() int {
+	return len(r.tcpProxy.connections)
 }
