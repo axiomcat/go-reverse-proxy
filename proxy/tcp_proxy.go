@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/axiomcat/reverse-proxy/logger"
+	"github.com/axiomcat/reverse-proxy/metrics"
 )
 
 type connPair struct {
@@ -25,7 +26,12 @@ type TcpProxy struct {
 
 func (p *TcpProxy) handleConnection(conn net.Conn) {
 	logger := logger.GetInstance(0)
+	metrics := metrics.GetInstance()
+
 	targetConn, err := net.Dial("tcp", p.TargetAddr)
+
+	metrics.ActiveTcpConnections += 1
+	metrics.TotalTcpConnections += 1
 
 	if err != nil {
 		conn.Close()
@@ -45,6 +51,7 @@ func (p *TcpProxy) handleConnection(conn net.Conn) {
 
 		conn.Close()
 		targetConn.Close()
+		metrics.ActiveTcpConnections -= 1
 	}()
 
 	var wg sync.WaitGroup

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/axiomcat/reverse-proxy/logger"
+	"github.com/axiomcat/reverse-proxy/metrics"
 )
 
 type HttpProxy struct {
@@ -28,6 +29,7 @@ type HttpProxyRequestHandler struct {
 
 func (handler *HttpProxyRequestHandler) Start() {
 	logger := logger.GetInstance(0)
+	metrics := metrics.GetInstance()
 
 	hostToTarget := make(map[string][]HttpProxy)
 	for _, proxy := range handler.HttpProxies {
@@ -42,6 +44,7 @@ func (handler *HttpProxyRequestHandler) Start() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 		host := r.Host
 		proxies, proxyExist := hostToTarget[host]
 		if !proxyExist {
@@ -63,6 +66,9 @@ func (handler *HttpProxyRequestHandler) Start() {
 		if !processedRequest {
 			logger.Log(fmt.Sprintf("Did not find any matching rule for path %s\n", path))
 		}
+		elapsed := time.Since(start).Milliseconds()
+		metrics.RequestTimes = append(metrics.RequestTimes, elapsed)
+		metrics.RequestCount += 1
 	})
 
 	httpServer := &http.Server{
@@ -117,7 +123,7 @@ func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {
 	targetReq.Host = r.Host
 
 	client := &http.Client{}
-	logger.Debug(fmt.Sprint("Making request to target", targetReq.URL))
+	logger.Debug(fmt.Sprint("Making request to target ", targetReq.URL))
 	resp, err := client.Do(targetReq)
 	if err != nil {
 		logger.Log(fmt.Sprint("Error while sending request to target:", err))
