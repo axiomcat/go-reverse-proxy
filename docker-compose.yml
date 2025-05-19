@@ -1,0 +1,8 @@
+services:
+  reverse-proxy:
+    build:
+      context: .
+    container_name: go-reverse-proxy
+    network_mode: host
+    volumes:
+      - ./config:/build/config
