@@ -12,6 +12,7 @@ type Metrics struct {
 	RequestCount         int
 	ActiveTcpConnections int
 	TotalTcpConnections  int
+	MetricsRequestCount  int
 }
 
 var instance *Metrics
@@ -41,10 +42,12 @@ func (m *Metrics) getRequestTimeAvg() int64 {
 }
 
 func (m *Metrics) GetMetrics() string {
+	m.MetricsRequestCount += 1
 	metrics := ""
 	metrics += fmt.Sprintf("tcp_connections_active_count %d\n", m.ActiveTcpConnections)
 	metrics += fmt.Sprintf("tcp_connections_total_count %d\n", m.TotalTcpConnections)
 	metrics += fmt.Sprintf("http_request_time_avg_milliseconds %d\n", m.getRequestTimeAvg())
 	metrics += fmt.Sprintf("http_request_total_count %d\n", m.RequestCount)
+	metrics += fmt.Sprintf("metrics_request_count %d\n", m.MetricsRequestCount)
 	return metrics
 }

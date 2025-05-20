@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	configPath := "config/config.yml"
+	configPath := "config/config-docker.yml"
 	auxPort := ":42007"
 
 	reverseProxy := proxy.ReverseProxy{AuxPort: auxPort, ConfigPath: configPath}

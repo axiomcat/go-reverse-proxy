@@ -3,6 +3,24 @@ services:
     build:
       context: .
     container_name: go-reverse-proxy
-    network_mode: host
     volumes:
       - ./config:/build/config
+    networks:
+        - local
+    ports:
+      - 42007:42007
+      - 8020:8020
+      - 8021:8021
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - local
+    ports:
+      - 9090:9090
+networks:
+  local:
+    driver: bridge
