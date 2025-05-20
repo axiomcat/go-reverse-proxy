@@ -4,7 +4,6 @@ This is a small implementation of a reverse proxy in go. I made this for
 learning purposes, both to get experience with the language and learn how a
 reverse proxy works.
 
-
 ## What is a reverse proxy?
 
 A reverse proxy is a system that sits between the client request and your
@@ -13,12 +12,29 @@ application. For example, you can host your images and chat services in
 different servers while your client is just accessing a different route in the
 same domain `app/images` or `app/chat`. 
 
+![Reverse proxy diagram](media/reverse-proxy-graph.png)
 
 In this image we see the reverse proxy withing the application network, which
 handles the traffic to a light or performance server based on the client
 request.
 
 ## Running
+
+Clone the repository
+
+```bash
+git clone https://github.com/axiomcat/go-reverse-proxy.git
+cd go-reverse-proxy
+```
+
+Build the docker compose file
+
+```bash
+docker compose up
+```
+
+This setup uses the conifg in `config/config-docker.yml` and sets up the
+internal api at `42007`.
 
 ## Config
 
