@@ -3,6 +3,9 @@ services:
     build:
       context: .
     container_name: go-reverse-proxy
+    environment:
+      - CONFIG_FILE=${CONFIG_FILE}
+      - INTERNAL_API_PORT=${INTERNAL_API_PORT:-42007}
     volumes:
       - ./config:/build/config
     networks:

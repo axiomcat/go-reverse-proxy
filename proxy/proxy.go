@@ -12,12 +12,12 @@ type ReverseProxy struct {
 	tcpProxy         TcpProxy
 	httpProxyHandler HttpProxyRequestHandler
 	proxyConfig      config.ReverseProxyConfig
-	AuxPort          string
-	ConfigPath       string
+	InternalApiPort  string
+	ConfigFile       string
 }
 
 func (r *ReverseProxy) SetupConfig() {
-	proxyConfig, err := config.ReadProxyConfig(r.ConfigPath)
+	proxyConfig, err := config.ReadProxyConfig(r.ConfigFile)
 	r.proxyConfig = proxyConfig
 	logger := logger.GetInstance(config.GetLogLevel(proxyConfig))
 	logger.UpdateLogLevel(config.GetLogLevel(proxyConfig))
