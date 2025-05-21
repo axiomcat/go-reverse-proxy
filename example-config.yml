@@ -1,8 +1,4 @@
 ---
-tcp:
-  target: "localhost:8080"
-  port: ":8020"
-
 http_routes:
   - target: "https://jsonplaceholder.typicode.com"
     host: "localhost"
