@@ -9,7 +9,6 @@ import (
 )
 
 type ReverseProxy struct {
-	tcpProxy         TcpProxy
 	httpProxyHandler HttpProxyRequestHandler
 	proxyConfig      config.ReverseProxyConfig
 	InternalApiPort  string
@@ -50,17 +49,6 @@ func (r *ReverseProxy) ReloadConfig() {
 }
 
 func (r *ReverseProxy) Start() {
-	r.tcpProxy = TcpProxy{}
-
-	if r.proxyConfig.Tcp != nil {
-		r.tcpProxy = TcpProxy{
-			Port:       r.proxyConfig.Tcp.Port,
-			TargetAddr: r.proxyConfig.Tcp.Target,
-		}
-
-		go r.tcpProxy.Start()
-	}
-
 	r.httpProxyHandler = HttpProxyRequestHandler{}
 
 	if r.proxyConfig.HttpRoutes != nil {
@@ -89,12 +77,4 @@ func (r *ReverseProxy) Stop() {
 	if r.proxyConfig.HttpRoutes != nil {
 		r.httpProxyHandler.Stop(ctx)
 	}
-
-	if r.proxyConfig.Tcp != nil {
-		r.tcpProxy.Stop()
-	}
-}
-
-func (r *ReverseProxy) GetNumberOfTcpConnections() int {
-	return len(r.tcpProxy.connections)
 }

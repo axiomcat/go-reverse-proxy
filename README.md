@@ -39,8 +39,7 @@ internal api at `42007`. It also uses the endpoints from [httpbin](https://httpb
 ## Config
 
 You can use the `config.yml` to configure the routing for the proxy server.
-You can add either tcp or http routes, although http has more options like
-prefix path and shutdown timeout.
+You can http routes with options prefix path and shutdown timeout.
 
 Note that the rules for http are applied in the order they are written, in this
 example config for the admin  host we match `/users` to a path and use a default
@@ -48,10 +47,6 @@ target for other paths.
 
 ```yml
 ---
-tcp:
-  target: "localhost:8080"
-  port: ":8020"
-
 http_routes:
   - target: "https://jsonplaceholder.typicode.com"
     host: "localhost"
@@ -93,8 +88,6 @@ With docker composer you can start a prometheus server at `9091` where you
 can find these metrics:
 
 ```
-tcp_connections_active_count
-tcp_connections_total_count
 http_request_time_avg_milliseconds
 http_request_total_count
 ```
