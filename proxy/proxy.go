@@ -67,9 +67,10 @@ func (r *ReverseProxy) Start() {
 		httpProxies := []HttpProxy{}
 		for _, httpProxyConfig := range r.proxyConfig.HttpRoutes {
 			httpProxy := HttpProxy{
-				TargetAddr: httpProxyConfig.Target,
-				Host:       httpProxyConfig.Host,
-				PrefixPath: httpProxyConfig.PathPrefix,
+				TargetAddr:      httpProxyConfig.Target,
+				Host:            httpProxyConfig.Host,
+				PrefixPath:      httpProxyConfig.PathPrefix,
+				StripPathPrefix: httpProxyConfig.StripPathPrefix,
 			}
 			httpProxies = append(httpProxies, httpProxy)
 		}

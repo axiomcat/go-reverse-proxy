@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"maps"
@@ -16,9 +17,10 @@ import (
 )
 
 type HttpProxy struct {
-	TargetAddr string
-	Host       string
-	PrefixPath string
+	TargetAddr      string
+	Host            string
+	PrefixPath      string
+	StripPathPrefix bool
 }
 
 type HttpProxyRequestHandler struct {
@@ -101,30 +103,41 @@ func (handler *HttpProxyRequestHandler) Stop(ctx context.Context) {
 func (p HttpProxy) ForwardRequest(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetInstance(0)
 	ctx := r.Context()
-	targetHeaders := make(map[string][]string)
+	targetHeaders := make(http.Header)
 	for k, v := range r.Header {
 		targetHeaders[k] = slices.Clone(v)
 	}
-	forwardedForHeader := targetHeaders["X-Forwarded-For"]
-	targetHeaders["X-Forwarded-For"] = append(forwardedForHeader, r.RemoteAddr)
-	targetHeaders["X-Forwarded-Proto"] = []string{"http"}
-	targetHeaders["X-Forwarded-Host"] = []string{r.Host}
+	targetHeaders.Set("X-Forwarded-For", r.RemoteAddr)
+	targetHeaders.Set("X-Forwarded-Proto", "http")
+	targetHeaders.Set("X-Forwarded-Host", r.Host)
 
 	targetUrl, err := url.Parse(p.TargetAddr)
 	if err != nil {
 		logger.Log(fmt.Sprintf("Error while parsing url %s: %v", p.TargetAddr, err))
 		return
 	}
-	targetUrl.Path = r.URL.Path
+	fmt.Println("Url path request", r.URL.Path)
+	if p.StripPathPrefix {
+		targetUrl.Path = strings.Replace(r.URL.Path, p.PrefixPath, "", 1)
+	} else {
+		targetUrl.Path = r.URL.Path
+	}
+	fmt.Println("Url path request", targetUrl.Path)
 	targetUrl.RawQuery = r.URL.RawQuery
 
 	targetReq, err := http.NewRequestWithContext(ctx, r.Method, targetUrl.String(), r.Body)
 	targetReq.Header = targetHeaders
-	targetReq.Host = r.Host
+	logger.Log(targetUrl.String())
+	logger.Log(fmt.Sprintf("Headers %v\n", targetReq.Header))
 
-	client := &http.Client{}
+	// client := &http.Client{}
 	logger.Debug(fmt.Sprint("Making request to target ", targetReq.URL))
-	resp, err := client.Do(targetReq)
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: false}, // if you trust the cert
+	}
+	// resp, err := client.Do(targetReq)
+	resp, err := transport.RoundTrip(targetReq)
 	if err != nil {
 		logger.Log(fmt.Sprint("Error while sending request to target:", err))
 		return

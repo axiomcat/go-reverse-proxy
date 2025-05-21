@@ -53,6 +53,11 @@ tcp:
   port: ":8020"
 
 http_routes:
+  - target: "https://jsonplaceholder.typicode.com"
+    host: "localhost"
+    path_prefix: "/https"
+    strip_path_prefix: true
+
   - target: "http://localhost:8081"
     host: "localhost"
 

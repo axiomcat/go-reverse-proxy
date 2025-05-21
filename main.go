@@ -16,8 +16,8 @@ func main() {
 	var configFile string
 	configFile = os.Getenv("CONFIG_FILE")
 	if configFile == "" {
-		logger.Log("Env var CONFIG_FILE not set, defaulting to config/config.yml")
-		configFile = "config/config.yml"
+		logger.Log("Env var CONFIG_FILE not set, defaulting to config.yml")
+		configFile = "example-config.yml"
 	}
 
 	var internalApiPort string

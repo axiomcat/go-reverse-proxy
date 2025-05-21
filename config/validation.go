@@ -16,9 +16,10 @@ type ReverseProxyConfig struct {
 		Target string `yaml:"target"`
 	} `yaml:"tcp"`
 	HttpRoutes []*struct {
-		Target     string `yaml:"target"`
-		Host       string `yaml:"host"`
-		PathPrefix string `yaml:"path_prefix"`
+		Target          string `yaml:"target"`
+		Host            string `yaml:"host"`
+		PathPrefix      string `yaml:"path_prefix"`
+		StripPathPrefix bool   `yaml:"strip_path_prefix"`
 	} `yaml:"http_routes"`
 	HttpConfig struct {
 		Port            string        `yaml:"port"`
