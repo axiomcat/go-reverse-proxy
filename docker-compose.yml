@@ -7,7 +7,7 @@ services:
       - CONFIG_FILE=${CONFIG_FILE:-config-docker.yml}
       - INTERNAL_API_PORT=${INTERNAL_API_PORT:-:42007}
     volumes:
-      - ./config:/build/config
+      - ./config-docker.yml:/build/config-docker.yml
     networks:
         - local
     ports:
