@@ -4,13 +4,12 @@ tcp:
   port: ":8020"
 
 http_routes:
+  - target: "http://host.docker.internal:8081"
+    host: "localhost"
+
   - target: "http://httpbin:80"
     host: "test.localhost"
     path_prefix: "/"
-
-  # For any local target
-  - target: "http://host.docker.internal:8081"
-    host: "localhost"
 
 http_config:
   port: ":8021"

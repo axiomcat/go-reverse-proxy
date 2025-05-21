@@ -33,8 +33,8 @@ Build the docker compose file
 docker compose up
 ```
 
-This setup uses the conifg in `config/config-docker.yml` and sets up the
-internal api at `42007`.
+This setup uses the conifg in `config-docker.yml` and sets up the
+internal api at `42007`. It also uses the endpoints from [httpbin](https://httpbin.org/).
 
 ## Config
 
